@@ -1,0 +1,475 @@
+int width = 800;
+int height = 400;
+int paddleWidth = 20;
+int initialPaddleHeight = 100;
+int initialPaddleSpeed = 5;
+int ballSize = 20;
+int initialBallSpeedX = 5;
+int initialBallSpeedY = 5;
+float ballSpeedX;
+float ballSpeedY;
+
+// Posições das raquetes e bola
+float ballX;
+float ballY;
+float ballSpeedXDir;
+float ballSpeedYDir;
+
+// Pontuação dos jogadores
+int player1Score = 0;
+int player2Score = 0;
+
+// Variáveis de cronômetro
+boolean gameStarted = false;
+boolean ballReleased = false;
+int countdown = 3;
+int lastTime;
+
+// Contador de colisões com as raquetes
+int collisionCount = 0;
+int collisionThreshold = 5; // Número de colisões necessárias para aumentar a velocidade
+
+// Variável de pausa
+boolean isPaused = false;
+
+// Estados do jogo
+String gameState = "menu"; // Estado inicial do jogo
+
+// Posições e dimensões do botão de pausa
+int pauseButtonX = width - 30;
+int pauseButtonY = height - 30;
+int pauseButtonWidth = 15;
+int pauseButtonHeight = 20;
+
+// Arrays booleanos para verificar quais teclas estão pressionadas
+boolean[] keys = new boolean[128];
+
+// Variáveis para o quadrado vermelho
+int squareSize = 40;
+int squareX;
+int squareY;
+int squareLastTime;
+int squareInterval = 10000; // Intervalo de 10 segundos
+
+// Variáveis para o círculo azul
+int circleSize = 40;
+int circleX;
+int circleY;
+int circleLastTime;
+int circleInterval = 10000; // Intervalo de 10 segundos
+
+// Variáveis para o triângulo verde
+int triangleSize = 40;
+int triangleX;
+int triangleY;
+int triangleLastTime;
+int triangleInterval = 10000; // Intervalo de 10 segundos
+
+// Controle de power-ups
+boolean showSquare = false;
+boolean showCircle = false;
+boolean showTriangle = false;
+boolean powerUpActive = false;
+int powerUpLastTime;
+int powerUpInterval = 10000;
+int effectStartTime;
+int effectDuration = 5000; // Duração do efeito de 5 segundos
+
+boolean leftPaddleLastHit = false; // Variável para armazenar qual raquete rebateu a bola por último
+boolean sizeIncreased = false;
+boolean frozenPaddle1 = false;
+boolean frozenPaddle2 = false;
+boolean speedIncreased = false;
+
+// Estrutura para as raquetes
+class Paddle {
+  float y;
+  int height;
+  int speed;
+  color c;
+
+  Paddle(float y) {
+    this.y = y;
+    this.height = initialPaddleHeight;
+    this.speed = initialPaddleSpeed;
+    this.c = color(255); // Cor inicial branca
+  }
+}
+
+Paddle paddle1;
+Paddle paddle2;
+
+void setup() {
+  size(800, 400);
+  paddle1 = new Paddle(height / 2);
+  paddle2 = new Paddle(height / 2);
+  reset();
+  lastTime = millis();
+  squareLastTime = millis();
+  circleLastTime = millis();
+  triangleLastTime = millis();
+  powerUpLastTime = millis();
+  generatePowerUpPositions();
+}
+
+void draw() {
+  background(0);
+
+  if (gameState.equals("menu")) {
+    drawMenu();
+  } else if (gameState.equals("playing")) {
+    if (isPaused) {
+      drawPausedScreen();
+    } else {
+      drawGame();
+    }
+    drawPauseButton(); // Desenhar o botão de pausa
+  }
+}
+
+void drawMenu() {
+  fill(255);
+  textSize(32);
+  textAlign(CENTER, CENTER);
+  text("PONG", width / 2, height / 3);
+  textSize(24);
+  text("PLAY", width / 2, height / 2);
+}
+
+void drawPausedScreen() {
+  fill(255);
+  textSize(32);
+  textAlign(CENTER, CENTER);
+  text("PAUSE", width / 2, height / 2);
+}
+
+void drawPauseButton() {
+  fill(255, 255, 255, 150); // Branco com 150 de opacidade
+  noStroke();
+  rect(pauseButtonX, pauseButtonY, pauseButtonWidth / 2, pauseButtonHeight); // Barra esquerda
+  rect(pauseButtonX + pauseButtonWidth / 2 + 5, pauseButtonY, pauseButtonWidth / 2, pauseButtonHeight); // Barra direita
+}
+
+void drawGame() {
+  // Movimento das raquetes
+  if (keys['w'] && !frozenPaddle1) {
+    paddle1.y -= leftPaddleLastHit && speedIncreased ? paddle1.speed * 1.2 : paddle1.speed;
+  }
+  if (keys['s'] && !frozenPaddle1) {
+    paddle1.y += leftPaddleLastHit && speedIncreased ? paddle1.speed * 1.2 : paddle1.speed;
+  }
+  if (keys[UP] && !frozenPaddle2) {
+    paddle2.y -= !leftPaddleLastHit && speedIncreased ? paddle2.speed * 1.2 : paddle2.speed;
+  }
+  if (keys[DOWN] && !frozenPaddle2) {
+    paddle2.y += !leftPaddleLastHit && speedIncreased ? paddle2.speed * 1.2 : paddle2.speed;
+  }
+
+  // Limites das raquetes
+  paddle1.y = constrain(paddle1.y, paddle1.height / 2, height - paddle1.height / 2);
+  paddle2.y = constrain(paddle2.y, paddle2.height / 2, height - paddle2.height / 2);
+
+  // Desenha as raquetes
+  fill(paddle1.c);
+  rect(0, paddle1.y - paddle1.height / 2, paddleWidth, paddle1.height);
+
+  fill(paddle2.c);
+  rect(width - paddleWidth, paddle2.y - paddle2.height / 2, paddleWidth, paddle2.height);
+
+  // Exibe a pontuação dos jogadores
+  fill(255);
+  textSize(32);
+  text(player1Score, width / 4, 50);
+  text(player2Score, width * 3 / 4, 50);
+
+  // Lógica de cronômetro para soltar a bola
+  if (!ballReleased) {
+    fill(255);
+    textSize(32);
+    textAlign(CENTER, CENTER);
+    text(countdown, width / 2, height / 2);
+
+    if (millis() - lastTime >= 1000) {
+      countdown--;
+      lastTime = millis();
+    }
+
+    if (countdown < 0) {
+      ballReleased = true;
+      countdown = 3;
+    }
+
+    return;
+  }
+
+  // Movimento da bola
+  ballX += ballSpeedX * ballSpeedXDir;
+  ballY += ballSpeedY * ballSpeedYDir;
+
+  // Colisão da bola com as bordas
+  if (ballY <= 0 || ballY >= height) {
+    ballSpeedYDir *= -1;
+  }
+
+  // Colisão da bola com as raquetes
+  if (ballX - ballSize / 2 <= paddleWidth) {
+    if (ballY + ballSize / 2 >= paddle1.y - paddle1.height / 2 && ballY - ballSize / 2 <= paddle1.y + paddle1.height / 2) {
+      ballSpeedXDir *= -1;
+      ballX = paddleWidth + ballSize / 2; // Corrige a posição da bola para fora da raquete
+      leftPaddleLastHit = true;
+      collisionCount++;
+      if (collisionCount >= collisionThreshold) {
+        increaseBallSpeed();
+        collisionCount = 0; // Reset the collision count after increasing speed
+      }
+    }
+  } else if (ballX + ballSize / 2 >= width - paddleWidth) {
+    if (ballY + ballSize / 2 >= paddle2.y - paddle2.height / 2 && ballY - ballSize / 2 <= paddle2.y + paddle2.height / 2) {
+      ballSpeedXDir *= -1;
+      ballX = width - paddleWidth - ballSize / 2; // Corrige a posição da bola para fora da raquete
+      leftPaddleLastHit = false;
+      collisionCount++;
+      if (collisionCount >= collisionThreshold) {
+        increaseBallSpeed();
+        collisionCount = 0; // Reset the collision count after increasing speed
+      }
+    }
+  }
+
+  // Verifica se a bola saiu da tela
+  if (ballX < 0) {
+    player2Score++;
+    reset();
+  } else if (ballX > width) {
+    player1Score++;
+    reset();
+  }
+
+  // Desenha a bola
+  ellipse(ballX, ballY, ballSize, ballSize);
+
+  // Desenha os power-ups
+  if (millis() - powerUpLastTime >= powerUpInterval && !powerUpActive) {
+    generatePowerUpPositions();
+    powerUpLastTime = millis();
+  }
+  
+  if (showSquare) {
+    fill(255, 0, 0);
+    rect(squareX, squareY, squareSize, squareSize);
+  }
+  
+  if (showCircle) {
+    fill(0, 0, 255);
+    ellipse(circleX, circleY, circleSize, circleSize);
+  }
+  
+  if (showTriangle) {
+    fill(0, 255, 0);
+    drawTriangle(triangleX, triangleY, triangleSize);
+  }
+
+  checkPowerUpCollision();
+  checkEffectDuration();
+}
+
+void reset() {
+  ballX = width / 2;
+  ballY = height / 2;
+  ballSpeedX = initialBallSpeedX;
+  ballSpeedY = initialBallSpeedY;
+  ballSpeedXDir = random(1) > 0.5 ? 1 : -1;
+  ballSpeedYDir = random(1) > 0.5 ? 1 : -1;
+  ballReleased = false;
+  lastTime = millis();
+  collisionCount = 0; // Reset collision count on reset
+  resetEffects();
+}
+
+void increaseBallSpeed() {
+  ballSpeedX *= 1.6; // Increase speed by 60%
+  ballSpeedY *= 1.6; // Increase speed by 60%
+}
+
+// Funções atualizadas para gerar posições mais ao centro do campo de jogo
+void generateSquarePosition() {
+  int centerX = width / 2;
+  int centerY = height / 2;
+  int rangeX = width / 4;
+  int rangeY = height / 4;
+  
+  squareX = int(random(centerX - rangeX, centerX + rangeX));
+  squareY = int(random(centerY - rangeY, centerY + rangeY));
+}
+
+void generateCirclePosition() {
+  int centerX = width / 2;
+  int centerY = height / 2;
+  int rangeX = width / 4;
+  int rangeY = height / 4;
+  boolean positionValid;
+  
+  do {
+    positionValid = true;
+    circleX = int(random(centerX - rangeX, centerX + rangeX));
+    circleY = int(random(centerY - rangeY, centerY + rangeY));
+    
+    if (showSquare && dist(circleX, circleY, squareX + squareSize / 2, squareY + squareSize / 2) < (circleSize / 2 + squareSize / 2)) {
+      positionValid = false;
+    }
+  } while (!positionValid);
+}
+
+void generateTrianglePosition() {
+  int centerX = width / 2;
+  int centerY = height / 2;
+  int rangeX = width / 4;
+  int rangeY = height / 4;
+  boolean positionValid;
+  
+  do {
+    positionValid = true;
+    triangleX = int(random(centerX - rangeX, centerX + rangeX));
+    triangleY = int(random(centerY - rangeY, centerY + rangeY));
+    
+    if ((showSquare && dist(triangleX, triangleY, squareX + squareSize / 2, squareY + squareSize / 2) < (triangleSize / 2 + squareSize / 2)) ||
+        (showCircle && dist(triangleX, triangleY, circleX, circleY) < (triangleSize / 2 + circleSize / 2))) {
+      positionValid = false;
+    }
+  } while (!positionValid);
+}
+
+// Gera novas posições para os power-ups, mais ao centro do campo de jogo
+void generatePowerUpPositions() {
+  // Decide aleatoriamente quais power-ups serão exibidos
+  showSquare = random(1) > 0.5;
+  showCircle = random(1) > 0.5;
+  showTriangle = random(1) > 0.5;
+  
+  // Garantir que pelo menos um power-up será exibido
+  if (!showSquare && !showCircle && !showTriangle) {
+    int randChoice = int(random(3));
+    if (randChoice == 0) showSquare = true;
+    else if (randChoice == 1) showCircle = true;
+    else showTriangle = true;
+  }
+  
+  // Gera novas posições para os power-ups mais ao centro do campo de jogo
+  if (showSquare) {
+    generateSquarePosition();
+  }
+  
+  if (showCircle) {
+    generateCirclePosition();
+  }
+  
+  if (showTriangle) {
+    generateTrianglePosition();
+  }
+}
+
+void drawTriangle(float x, float y, float size) {
+  float halfSize = size / 2;
+  beginShape();
+  vertex(x, y - halfSize);
+  vertex(x - halfSize, y + halfSize);
+  vertex(x + halfSize, y + halfSize);
+  endShape(CLOSE);
+}
+
+void keyPressed() {
+  if (key == 'p' || key == 'P') {
+    isPaused = !isPaused;
+  }
+  if (key < 128) {
+    keys[key] = true;
+  }
+  if (keyCode == UP || keyCode == DOWN) {
+    keys[keyCode] = true;
+  }
+}
+
+void keyReleased() {
+  if (key < 128) {
+    keys[key] = false;
+  }
+  if (keyCode == UP || keyCode == DOWN) {
+    keys[keyCode] = false;
+  }
+}
+
+void mousePressed() {
+  if (gameState.equals("menu")) {
+    if (mouseX > width / 2 - 50 && mouseX < width / 2 + 50 && mouseY > height / 2 - 20 && mouseY < height / 2 + 20) {
+      gameState = "playing";
+      lastTime = millis(); // Reiniciar o cronômetro
+    }
+  } else if (gameState.equals("playing")) {
+    if (mouseX > pauseButtonX && mouseX < pauseButtonX + pauseButtonWidth && mouseY > pauseButtonY && mouseY < pauseButtonY + pauseButtonHeight) {
+      isPaused = !isPaused;
+    }
+  }
+}
+
+void checkPowerUpCollision() {
+  if (dist(ballX, ballY, squareX + squareSize / 2, squareY + squareSize / 2) < (ballSize / 2 + squareSize / 2) && showSquare) {
+    if (leftPaddleLastHit) {
+      paddle1.height *= 1.6; // Aumenta o tamanho em 60%
+      paddle1.c = color(255, 0, 0); // Muda a cor para vermelho
+    } else {
+      paddle2.height *= 1.6; // Aumenta o tamanho em 60%
+      paddle2.c = color(255, 0, 0); // Muda a cor para vermelho
+    }
+    sizeIncreased = true;
+    powerUpActive = true;
+    effectStartTime = millis();
+    showSquare = false;
+  }
+  
+  if (dist(ballX, ballY, circleX, circleY) < (ballSize / 2 + circleSize / 2) && showCircle) {
+    if (leftPaddleLastHit) {
+      frozenPaddle2 = true;
+      paddle2.c = color(0, 0, 255); // Muda a cor para azul
+    } else {
+      frozenPaddle1 = true;
+      paddle1.c = color(0, 0, 255); // Muda a cor para azul
+    }
+    powerUpActive = true;
+    effectStartTime = millis();
+    showCircle = false;
+  }
+  
+  if (dist(ballX, ballY, triangleX, triangleY) < (ballSize / 2 + triangleSize / 2) && showTriangle) {
+    if (leftPaddleLastHit) {
+      paddle1.speed *= 1.5;
+      paddle1.c = color(0, 255, 0); // Muda a cor para verde
+    } else {
+      paddle2.speed *= 1.5;
+      paddle2.c = color(0, 255, 0); // Muda a cor para verde
+    }
+    speedIncreased = true;
+    powerUpActive = true;
+    effectStartTime = millis();
+    showTriangle = false;
+  }
+}
+
+void checkEffectDuration() {
+  if (powerUpActive && millis() - effectStartTime >= effectDuration) {
+    resetEffects();
+  }
+}
+
+void resetEffects() {
+  paddle1.height = initialPaddleHeight;
+  paddle1.speed = initialPaddleSpeed;
+  paddle1.c = color(255); // Reseta a cor para branco
+  paddle2.height = initialPaddleHeight;
+  paddle2.speed = initialPaddleSpeed;
+  paddle2.c = color(255); // Reseta a cor para branco
+  sizeIncreased = false;
+  frozenPaddle1 = false;
+  frozenPaddle2 = false;
+  speedIncreased = false;
+  powerUpActive = false;
+}
