@@ -1,0 +1,14 @@
+Botões:
+Clique do mouse
+
+Movimentação das raquetes:
+P1 > Teclas "W" e "S"
+P2 > "Seta para cima" e "Seta para baixo"
+
+Demais funções:
+
+P > Pause
+M > Retorna ao menu se seleção
+Qualquer tecla > Retorna dos creditos
+
+
