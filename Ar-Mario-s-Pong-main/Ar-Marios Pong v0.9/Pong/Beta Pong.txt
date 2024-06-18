@@ -1,0 +1,100 @@
+// Variáveis do jogo
+int width = 400;
+int height = 400;
+int paddleWidth = 20;
+int paddleHeight = 100;
+int ballSize = 20;
+int paddleSpeed = 5;
+int ballSpeedX = 3;
+int ballSpeedY = 3;
+
+// Posições das raquetes e bola
+float leftPaddleY;
+float rightPaddleY;
+float ballX;
+float ballY;
+float ballSpeedXDir;
+float ballSpeedYDir;
+
+// Pontuação dos jogadores
+int player1Score = 0;
+int player2Score = 0;
+
+void setup() {
+  size(400, 400);
+  leftPaddleY = height / 2;
+  rightPaddleY = height / 2;
+  ballX = width / 2;
+  ballY = height / 2;
+  ballSpeedXDir = random(1) > 0.5 ? 1 : -1;
+  ballSpeedYDir = random(1) > 0.5 ? 1 : -1;
+}
+
+void draw() {
+  background(0);
+  
+  // Movimento das raquetes
+  if (keyPressed) {
+    if (key == 'w') {
+      leftPaddleY -= paddleSpeed;
+    }
+    if (key == 's') {
+      leftPaddleY += paddleSpeed;
+    }
+    if (keyCode == UP) {
+      rightPaddleY -= paddleSpeed;
+    }
+    if (keyCode == DOWN) {
+      rightPaddleY += paddleSpeed;
+    }
+  }
+  
+  // Limites das raquetes
+  leftPaddleY = constrain(leftPaddleY, paddleHeight / 2, height - paddleHeight / 2);
+  rightPaddleY = constrain(rightPaddleY, paddleHeight / 2, height - paddleHeight / 2);
+  
+  // Movimento da bola
+  ballX += ballSpeedX * ballSpeedXDir;
+  ballY += ballSpeedY * ballSpeedYDir;
+  
+  // Colisão da bola com as bordas
+  if (ballY <= 0 || ballY >= height) {
+    ballSpeedYDir *= -1;
+  }
+  
+  // Colisão da bola com as raquetes
+  if ((ballX - ballSize / 2 <= paddleWidth && ballY >= leftPaddleY - paddleHeight / 2 && ballY <= leftPaddleY + paddleHeight / 2) ||
+      (ballX + ballSize / 2 >= width - paddleWidth && ballY >= rightPaddleY - paddleHeight / 2 && ballY <= rightPaddleY + paddleHeight / 2)) {
+    ballSpeedXDir *= -1;
+  }
+  
+  // Verifica se a bola saiu da tela
+  if (ballX < 0) {
+    player2Score++; // Incrementa o score do player 2
+    reset();
+  } else if (ballX > width) {
+    player1Score++; // Incrementa o score do player 1
+    reset();
+  }
+  
+  // Desenha as raquetes
+  fill(255);
+  rect(0, leftPaddleY - paddleHeight / 2, paddleWidth, paddleHeight);
+  rect(width - paddleWidth, rightPaddleY - paddleHeight / 2, paddleWidth, paddleHeight);
+  
+  // Desenha a bola
+  ellipse(ballX, ballY, ballSize, ballSize);
+  
+  // Exibe a pontuação dos jogadores
+  fill(255);
+  textSize(32);
+  text(player1Score, width/4, 50);
+  text(player2Score, width*3/4, 50);
+}
+
+void reset() {
+  ballX = width / 2;
+  ballY = height / 2;
+  ballSpeedXDir = random(1) > 0.8 ? 1 : -1;
+  ballSpeedYDir = random(1) > 0.8 ? 1 : -1;
+}

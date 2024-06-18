@@ -1,0 +1,239 @@
+int width = 400;
+int height = 400;
+int paddleWidth = 20;
+int paddleHeight = 100;
+int paddleSpeed = 5;
+int ballSize = 20;
+int initialBallSpeedX = 3;
+int initialBallSpeedY = 3;
+float ballSpeedX;
+float ballSpeedY;
+
+// Posições das raquetes e bola
+float leftPaddleY;
+float rightPaddleY;
+float ballX;
+float ballY;
+float ballSpeedXDir;
+float ballSpeedYDir;
+
+// Pontuação dos jogadores
+int player1Score = 0;
+int player2Score = 0;
+
+// Variáveis de cronômetro
+boolean gameStarted = false;
+boolean ballReleased = false;
+int countdown = 3;
+int lastTime;
+
+// Contador de colisões com as raquetes
+int collisionCount = 0;
+int collisionThreshold = 5; // Número de colisões necessárias para aumentar a velocidade
+
+// Variável de pausa
+boolean isPaused = false;
+
+// Estados do jogo
+String gameState = "menu"; // Estado inicial do jogo
+
+// Posições e dimensões do botão de pausa
+int pauseButtonX = width - 30;
+int pauseButtonY = height - 30;
+int pauseButtonWidth = 15;
+int pauseButtonHeight = 20;
+
+// Arrays booleanos para verificar quais teclas estão pressionadas
+boolean[] keys = new boolean[128];
+
+void setup() {
+  size(400, 400);
+  leftPaddleY = height / 2;
+  rightPaddleY = height / 2;
+  reset();
+  lastTime = millis();
+}
+
+void draw() {
+  background(0);
+
+  if (gameState.equals("menu")) {
+    drawMenu();
+  } else if (gameState.equals("playing")) {
+    if (isPaused) {
+      drawPausedScreen();
+    } else {
+      drawGame();
+    }
+    drawPauseButton(); // Desenhar o botão de pausa
+  }
+}
+
+void drawMenu() {
+  fill(255);
+  textSize(32);
+  textAlign(CENTER, CENTER);
+  text("PONG", width / 2, height / 3);
+  textSize(24);
+  text("PLAY", width / 2, height / 2);
+}
+
+void drawPausedScreen() {
+  fill(255);
+  textSize(32);
+  textAlign(CENTER, CENTER);
+  text("PAUSE", width / 2, height / 2);
+}
+
+void drawGame() {
+  // Movimento das raquetes
+  if (keys['w']) {
+    leftPaddleY -= paddleSpeed;
+  }
+  if (keys['s']) {
+    leftPaddleY += paddleSpeed;
+  }
+  if (keys[UP]) {
+    rightPaddleY -= paddleSpeed;
+  }
+  if (keys[DOWN]) {
+    rightPaddleY += paddleSpeed;
+  }
+
+  // Limites das raquetes
+  leftPaddleY = constrain(leftPaddleY, paddleHeight / 2, height - paddleHeight / 2);
+  rightPaddleY = constrain(rightPaddleY, paddleHeight / 2, height - paddleHeight / 2);
+
+  // Desenha as raquetes
+  fill(255);
+  rect(0, leftPaddleY - paddleHeight / 2, paddleWidth, paddleHeight);
+  rect(width - paddleWidth, rightPaddleY - paddleHeight / 2, paddleWidth, paddleHeight);
+
+  // Exibe a pontuação dos jogadores
+  fill(255);
+  textSize(32);
+  text(player1Score, width / 4, 50);
+  text(player2Score, width * 3 / 4, 50);
+
+  // Lógica de cronômetro para soltar a bola
+  if (!ballReleased) {
+    fill(255);
+    textSize(32);
+    textAlign(CENTER, CENTER);
+    text(countdown, width / 2, height / 2);
+
+    if (millis() - lastTime >= 1000) {
+      countdown--;
+      lastTime = millis();
+    }
+
+    if (countdown < 0) {
+      ballReleased = true;
+      countdown = 3;
+    }
+
+    return;
+  }
+
+  // Movimento da bola
+  ballX += ballSpeedX * ballSpeedXDir;
+  ballY += ballSpeedY * ballSpeedYDir;
+
+  // Colisão da bola com as bordas
+  if (ballY <= 0 || ballY >= height) {
+    ballSpeedYDir *= -1;
+  }
+
+  // Colisão da bola com as raquetes
+  if (ballX - ballSize / 2 <= paddleWidth) {
+    if (ballY + ballSize / 2 >= leftPaddleY - paddleHeight / 2 && ballY - ballSize / 2 <= leftPaddleY + paddleHeight / 2) {
+      ballSpeedXDir *= -1;
+      ballX = paddleWidth + ballSize / 2; // Corrige a posição da bola para fora da raquete
+      collisionCount++;
+      if (collisionCount >= collisionThreshold) {
+        increaseBallSpeed();
+        collisionCount = 0; // Reset the collision count after increasing speed
+      }
+    }
+  } else if (ballX + ballSize / 2 >= width - paddleWidth) {
+    if (ballY + ballSize / 2 >= rightPaddleY - paddleHeight / 2 && ballY - ballSize / 2 <= rightPaddleY + paddleHeight / 2) {
+      ballSpeedXDir *= -1;
+      ballX = width - paddleWidth - ballSize / 2; // Corrige a posição da bola para fora da raquete
+      collisionCount++;
+      if (collisionCount >= collisionThreshold) {
+        increaseBallSpeed();
+        collisionCount = 0; // Reset the collision count after increasing speed
+      }
+    }
+  }
+
+  // Verifica se a bola saiu da tela
+  if (ballX < 0) {
+    player2Score++; // Incrementa o score do player 2
+    reset();
+  } else if (ballX > width) {
+    player1Score++; // Incrementa o score do player 1
+    reset();
+  }
+
+  // Desenha a bola
+  ellipse(ballX, ballY, ballSize, ballSize);
+}
+
+void drawPauseButton() {
+  fill(255, 255, 255, 150); // Branco com 150 de opacidade
+  noStroke();
+  rect(pauseButtonX, pauseButtonY, pauseButtonWidth / 2, pauseButtonHeight); // Barra esquerda
+  rect(pauseButtonX + pauseButtonWidth / 2 + 5, pauseButtonY, pauseButtonWidth / 2, pauseButtonHeight); // Barra direita
+}
+
+void reset() {
+  ballX = width / 2;
+  ballY = height / 2;
+  ballSpeedX = initialBallSpeedX;
+  ballSpeedY = initialBallSpeedY;
+  ballSpeedXDir = random(1) > 0.5 ? 1 : -1;
+  ballSpeedYDir = random(1) > 0.5 ? 1 : -1;
+  ballReleased = false;
+  lastTime = millis();
+  collisionCount = 0; // Reset collision count on reset
+}
+
+void increaseBallSpeed() {
+  ballSpeedX *= 1.6; // Increase speed by 5%
+  ballSpeedY *= 1.6; // Increase speed by 5%
+}
+
+void keyPressed() {
+  if (key == 'p' || key == 'P') {
+    isPaused = !isPaused;
+  }
+  if (key < 128) {
+    keys[key] = true;
+  }
+  if (keyCode == UP || keyCode == DOWN) {
+    keys[keyCode] = true;
+  }
+}
+
+void keyReleased() {
+  if (key < 128) {
+    keys[key] = false;
+  }
+  if (keyCode == UP || keyCode == DOWN) {
+    keys[keyCode] = false;
+  }
+}
+
+void mousePressed() {
+  if (gameState.equals("menu")) {
+    if (mouseX > width / 2 - 50 && mouseX < width / 2 + 50 && mouseY > height / 2 - 20 && mouseY < height / 2 + 20) {
+      gameState = "playing";
+      lastTime = millis(); // Reiniciar o cronômetro
+    }
+  } else if (gameState.equals("playing")) {
+    if (mouseX > pauseButtonX && mouseX < pauseButtonX + pauseButtonWidth && mouseY > pauseButtonY && mouseY < pauseButtonY + pauseButtonHeight) {
+      isPaused = !isPaused;
+    }
+  }
+}
